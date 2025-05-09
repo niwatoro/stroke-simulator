@@ -104,7 +104,8 @@ public enum MuscleIndex
 }
 
 [Serializable]
-public struct Synergy {
+public struct Synergy
+{
     public MuscleIndex source;
     public MuscleIndex target;
     public float weight;
@@ -123,7 +124,7 @@ public class MuscleController : MonoBehaviour
     private HumanPoseHandler _humanPoseHandler;
     private HumanPoseHandler _ghostHumanPoseHandler;
 
-    void Awake()
+    private void Awake()
     {
         if (_vrik == null)
         {
@@ -143,12 +144,12 @@ public class MuscleController : MonoBehaviour
         }
     }
 
-    void Start()
+    private void Start()
     {
         _vrik.solver.OnPostUpdate += OnVRIKPostSolve;
     }
 
-    void OnVRIKPostSolve()
+    private void OnVRIKPostSolve()
     {
         if (_ghostAnimator == null) return;
         _humanPoseHandler ??= new HumanPoseHandler(_animator.avatar, _animator.transform);
@@ -156,18 +157,38 @@ public class MuscleController : MonoBehaviour
 
         _humanPoseHandler.GetHumanPose(ref _humanPose);
 
+        HumanPose _ghostHumanPose = new()
+        {
+            bodyPosition = _humanPose.bodyPosition,
+            bodyRotation = _humanPose.bodyRotation,
+            muscles = new float[_humanPose.muscles.Length]
+        };
+        for (int i = 0; i < _humanPose.muscles.Length; i++)
+        {
+            _ghostHumanPose.muscles[i] = _humanPose.muscles[i];
+        }
+
         for (int i = 0; i < synergies.Length; i++)
         {
             var sourceMuscle = (int)synergies[i].source;
             var targetMuscle = (int)synergies[i].target;
             var sourceValue = _humanPose.muscles[sourceMuscle];
             var targetValue = _humanPose.muscles[targetMuscle];
-            var newValue = targetValue + (sourceValue - targetValue) * synergies[i].weight;
-            _humanPose.muscles[targetMuscle] = newValue;
+            var newValue = targetValue + (sourceValue + 1) / 2 * synergies[i].weight;
+            _ghostHumanPose.muscles[targetMuscle] = MapRange(newValue, -1 - Mathf.Abs(synergies[i].weight), 1 + Mathf.Abs(synergies[i].weight), -1, 1);
         }
 
-        _ghostHumanPoseHandler.SetHumanPose(ref _humanPose);
-        _ghostAnimator.rootPosition = _animator.rootPosition;
-        _ghostAnimator.rootRotation = _animator.rootRotation;
+        _ghostHumanPose.bodyPosition = _humanPose.bodyPosition;
+        _ghostHumanPose.bodyRotation = _humanPose.bodyRotation;
+
+        _ghostHumanPoseHandler.SetHumanPose(ref _ghostHumanPose);
+
+        _ghostAnimator.Update(0f);
     }
+
+    private float MapRange(float value, float inMin, float inMax, float outMin, float outMax)
+    {
+        return (value - inMin) / (inMax - inMin) * (outMax - outMin) + outMin;
+    }
+
 }
