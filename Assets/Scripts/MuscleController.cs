@@ -109,6 +109,7 @@ public struct Synergy
     public MuscleIndex source;
     public MuscleIndex target;
     public float weight;
+    public float reference;
 }
 
 public class MuscleController : MonoBehaviour
@@ -174,8 +175,13 @@ public class MuscleController : MonoBehaviour
             var targetMuscle = (int)synergies[i].target;
             var sourceValue = _humanPose.muscles[sourceMuscle];
             var targetValue = _humanPose.muscles[targetMuscle];
-            var newValue = targetValue + (sourceValue + 1) / 2 * synergies[i].weight;
-            _ghostHumanPose.muscles[targetMuscle] = MapRange(newValue, -1 - Mathf.Abs(synergies[i].weight), 1 + Mathf.Abs(synergies[i].weight), -1, 1);
+            var newValue = targetValue + (sourceValue - synergies[i].reference) * synergies[i].weight;
+            
+            var firstOffset = (1 - synergies[i].reference) * synergies[i].weight;
+            var secondOffset = (-1 - synergies[i].reference) * synergies[i].weight;
+            var minValue = -1 + System.Math.Min(firstOffset, secondOffset);
+            var maxValue = 1 + System.Math.Max(firstOffset, secondOffset);
+            _ghostHumanPose.muscles[targetMuscle] = MapRange(newValue, minValue, maxValue, -1, 1);
         }
 
         _ghostHumanPose.bodyPosition = _humanPose.bodyPosition;
